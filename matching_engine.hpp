@@ -3,6 +3,7 @@
 #include "side.hpp"
 #include "types.hpp"
 
+#include <compare>
 #include <cstdint>
 #include <functional>
 #include <format>
@@ -21,6 +22,8 @@ public:
     {
         OrderId id;
         Quantity quantity;
+
+        auto operator<=>(Order const&) const = default;
     };
 
     using Level = std::list<Order>;
@@ -39,11 +42,11 @@ public:
             return std::nullopt;
 
         auto& level = getLevels<S>()[price];
-        level.push_back(Order{remainingQuantity.value(), getNextId()});
+        level.push_back(Order{ getNextId(), remainingQuantity.value() });
         return level.back().id;
     }
 
-    template <Side S> auto const& getLevels() const { return std::get<S>(mOrderbook); }
+    template <Side S> auto const& getLevels() const { return std::get<std::to_underlying(S)>(mOrderbook); }
 private:
     template <Side S>
     std::optional<Quantity> crossBook(Price price, Quantity quantity)
@@ -55,9 +58,8 @@ private:
         {
             auto const compFunc = crossLevels.key_comp();
             auto topLevel = crossLevels.begin();
-            auto levelPrice = topLevel->first;
 
-            while (!compFunc(levelPrice, price) and (topLevel != crossLevels.end()))
+            while (!compFunc(price, topLevel->first) and (topLevel != crossLevels.end()))
             {
                 auto& level = topLevel->second;
                 auto front = level.begin();
@@ -67,24 +69,25 @@ private:
                     auto current = front;
                     front++;
 
-                    if (front->quantity < quantity)
+                    if (current->quantity <= quantity)
                     {
-                        quantity -= front->quantity;
+                        quantity -= current->quantity;
                         level.erase(current);
                     }
                     else
                     {
-                        front->quantity -= quantity;
+                        current->quantity -= quantity;
                         return std::nullopt;
                     }
                 }
+                topLevel = crossLevels.erase(topLevel);
             }
         }
         return quantity;
     }
 
     /// Fetch the next valid order Id, and perform internal book keeping of IDs.
-    auto getNextId() { return mNextId++; }
+    auto getNextId() { return ++mNextId; }
 
     template <Side S> auto& getLevels() { return std::get<std::to_underlying(S)>(mOrderbook); }
 

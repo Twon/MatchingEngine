@@ -51,7 +51,8 @@ if (${MATCHING_ENGINE_IS_NOT_SUBPROJECT} AND ${BUILD_TESTING})
         CXX_STANDARD 23
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS NO
-    )    
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+    )
 
     enable_testing()
     add_test(
